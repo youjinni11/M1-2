@@ -3,6 +3,7 @@
 실행: uvicorn main:app --reload
 문서: http://127.0.0.1:8000/docs (Swagger UI)
 """
+import firebase_admin
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -30,7 +31,11 @@ app.add_middleware(
 @app.exception_handler(gexc.GoogleAPICallError)
 async def firestore_error_handler(request: Request, exc: gexc.GoogleAPICallError):
     """Firestore 오류(권한·연결 등)를 500 대신 원인이 담긴 503 JSON으로 돌려준다."""
-    return JSONResponse(status_code=503, content={"detail": f"DB 오류: {exc.message or exc}"})
+    try:  # 어느 Firebase 프로젝트에 연결됐는지(비밀 아님) 함께 알려 주면 설정 실수를 찾기 쉽다.
+        project = firebase_admin.get_app().project_id
+    except Exception:
+        project = "unknown"
+    return JSONResponse(status_code=503, content={"detail": f"DB 오류: {exc.message or exc} (project: {project})"})
 
 
 @app.exception_handler(Exception)
